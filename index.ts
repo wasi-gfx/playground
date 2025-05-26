@@ -16,7 +16,8 @@ const ASYNC_WASI_EXPORTS = [
     'wasi:http/incoming-handler#handle',
 ];
 
-export function onNewComponent(component: Uint8Array) {
+export async function onNewComponent(component: Uint8Array) {
+    createLoader();
     const options: GenerateOptions = {
         name: "mendy",
         noNodejsCompat: false,
@@ -50,7 +51,9 @@ export function onNewComponent(component: Uint8Array) {
             ['wasi:frame-buffer/frame-buffer', 'gfx.js'],
         ],
     }
+    await wait();
     let transpiled = generate(component, options);
+    await wait();
     createIFrame(transpiled);
 }
 
@@ -73,52 +76,66 @@ function generateHTML(transpiled: Transpiled) {
         urls.set(name, url);
     }
     return `
-    <html>
-        <head>
-            <style>
-                body {
-                    margin: 0;
-                    display: grid;
-                }
-            </style>
-            <script type="importmap">
-                {
-                    "imports": {
-                        "gfx.js": "/gfx.js",
-                        "./mendy.core.wasm": "${ urls.get('mendy.core.wasm') }",
-                        ${
-                            Array.from(urls.entries()).map(([key, value]) => {
-                                return `"${key}": "${value}"`
-                            }).join(',\n')
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <style>
+                    body {
+                        margin: 0;
+                        display: grid;
+                    }
+                </style>
+                <script type="importmap">
+                    {
+                        "imports": {
+                            "gfx.js": "/gfx.js",
+                            "./mendy.core.wasm": "${ urls.get('mendy.core.wasm') }",
+                            ${
+                                Array.from(urls.entries()).map(([key, value]) => {
+                                    return `"${key}": "${value}"`
+                                }).join(',\n')
+                            }
                         }
                     }
-                }
-            </script>
-            <script type="module">
-                import { "wasi:cli/run@0.2.0" as wasiCliRun } from 'mendy.js';
-                wasiCliRun.run();
-                // import * as e from 'mendy.js';
-                // console.log(e);
-                // console.log(e.instantiate());
-            </script>
-        </head>
-        <body>
-        </body>
-    </html>
+                </script>
+                <script type="module">
+                    import { "wasi:cli/run@0.2.0" as wasiCliRun } from 'mendy.js';
+                    wasiCliRun.run();
+                </script>
+            </head>
+            <body>
+            </body>
+        </html>
     `;
 }
+
+const iframeContainer = document.getElementById('iframe-container') as HTMLElement;
+const dialog = document.getElementById('dialog') as any;
 
 function createIFrame(transpiled: Transpiled) {
     const iframe = document.createElement('iframe') as HTMLIFrameElement;
     iframe.srcdoc = generateHTML(transpiled);
-    const dialog = document.getElementById('dialog') as HTMLDialogElement;
-    dialog.appendChild(iframe);
-    dialog.showModal();
+    iframeContainer.innerHTML = "";
+    iframeContainer.appendChild(iframe);
 }
 
-async function start() {
-    const component = await fetch('./breakout.wasm').then(res => res.arrayBuffer());
-    onNewComponent(new Uint8Array(component));
+function createLoader() {
+    iframeContainer.innerHTML = `<wired-progress value="50" style="--wired-progress-label-color:transparent;--wired-progress-label-background:transparent;"></wired-progress>`;
+    dialog.open = true;
 }
 
-start();
+window['runFromUrl'] = async function(url: string) {
+    const component = await fetch(url).then(res => res.arrayBuffer());
+    await onNewComponent(new Uint8Array(component));
+}
+
+window['runFromFile'] = async function(url: string) {
+    throw new Error('Not implemented');
+}
+
+window['closeDialog'] = function() {
+    iframeContainer.innerHTML = "";
+    dialog.open = false;
+}
+
+const wait = (ms?: number) => new Promise(resolve => setTimeout(resolve, ms));

@@ -3,31 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>wasi-gfx playground</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Gloria+Hallelujah&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,700,0,200&icon_names=close" />
+    <script type="module">
+        import "https://unpkg.com/wired-dialog@^2.1.0?module"
+        import 'https://unpkg.com/wired-icon-button@^2.1.0?module';
+        import 'https://unpkg.com/wired-button@^2.1.0?module';
+        import 'https://unpkg.com/wired-progress@^2.1.0?module';
+    </script>
     <style>
-        dialog {
-            padding: 24px;
-            border: none;
-            border-radius: 12px;
-            box-shadow: 2px 8px 16px 2px 8px 16px #00000040;;
+        :root {
+            font-family: 'Gloria Hallelujah', sans-serif;
+        }
+        main {
+            display: grid;
+            justify-content: center;
+            justify-items: center;
+            gap: 30px;
+        }
+        wired-dialog {
             display: grid;
             justify-items: stretch;
             align-items: stretch;
         }
-        ::backdrop {
-            background-color: #8000971f;
+        wired-dialog #dialog-header {
+            display: flex;
+            justify-content: flex-end;
         }
-        dialog iframe {
-            border: none;
-            width: 90svw;
-            height: 90svh;
+        wired-dialog iframe {
+            border: solid gray 8px;
+            border-radius: 12px;
+            width: 86svw;
+            height: 86svh;
         }
     </style>
 </head>
 <body>
-    <h1>wasi-gfx playground</h1>
-    <dialog id="dialog"></dialog>
-    <script> document.getElementById('dialog').close(); </script>
+    <main>
+        <h1>wasi-gfx playground</h1>
+        <wired-button elevation="5" onclick="runFromUrl('./triangle.wasm')">Triangle</wired-button>
+        <wired-button elevation="5" onclick="runFromUrl('./breakout.wasm')">Breakout</wired-button>
+    </main>
+
+    <wired-dialog id="dialog" elevation="8">
+        <div id="dialog-header">
+            <wired-icon-button onclick="closeDialog()" title="Close">
+                <span class="material-symbols-rounded">close</span>
+            </wired-icon-button>
+        </div>
+        <div id="iframe-container"></div>
+    </dialog>
     <script type="module" src="index.js"></script>
 </body>
 </html>

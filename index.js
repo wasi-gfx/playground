@@ -13,7 +13,8 @@ const ASYNC_WASI_EXPORTS = [
     'wasi:cli/run#run',
     'wasi:http/incoming-handler#handle',
 ];
-export function onNewComponent(component) {
+export async function onNewComponent(component) {
+    createLoader();
     const options = {
         name: "mendy",
         noNodejsCompat: false,
@@ -47,7 +48,9 @@ export function onNewComponent(component) {
             ['wasi:frame-buffer/frame-buffer', 'gfx.js'],
         ],
     };
+    await wait();
     let transpiled = generate(component, options);
+    await wait();
     createIFrame(transpiled);
 }
 function generateHTML(transpiled) {
@@ -68,47 +71,57 @@ function generateHTML(transpiled) {
         urls.set(name, url);
     }
     return `
-    <html>
-        <head>
-            <style>
-                body {
-                    margin: 0;
-                    display: grid;
-                }
-            </style>
-            <script type="importmap">
-                {
-                    "imports": {
-                        "gfx.js": "/gfx.js",
-                        "./mendy.core.wasm": "${urls.get('mendy.core.wasm')}",
-                        ${Array.from(urls.entries()).map(([key, value]) => {
+        <!DOCTYPE html>
+        <html>
+            <head>
+                <style>
+                    body {
+                        margin: 0;
+                        display: grid;
+                    }
+                </style>
+                <script type="importmap">
+                    {
+                        "imports": {
+                            "gfx.js": "/gfx.js",
+                            "./mendy.core.wasm": "${urls.get('mendy.core.wasm')}",
+                            ${Array.from(urls.entries()).map(([key, value]) => {
         return `"${key}": "${value}"`;
     }).join(',\n')}
+                        }
                     }
-                }
-            </script>
-            <script type="module">
-                import { "wasi:cli/run@0.2.0" as wasiCliRun } from 'mendy.js';
-                wasiCliRun.run();
-                // import * as e from 'mendy.js';
-                // console.log(e);
-                // console.log(e.instantiate());
-            </script>
-        </head>
-        <body>
-        </body>
-    </html>
+                </script>
+                <script type="module">
+                    import { "wasi:cli/run@0.2.0" as wasiCliRun } from 'mendy.js';
+                    wasiCliRun.run();
+                </script>
+            </head>
+            <body>
+            </body>
+        </html>
     `;
 }
+const iframeContainer = document.getElementById('iframe-container');
+const dialog = document.getElementById('dialog');
 function createIFrame(transpiled) {
     const iframe = document.createElement('iframe');
     iframe.srcdoc = generateHTML(transpiled);
-    const dialog = document.getElementById('dialog');
-    dialog.appendChild(iframe);
-    dialog.showModal();
+    iframeContainer.innerHTML = "";
+    iframeContainer.appendChild(iframe);
 }
-async function start() {
-    const component = await fetch('./breakout.wasm').then(res => res.arrayBuffer());
-    onNewComponent(new Uint8Array(component));
+function createLoader() {
+    iframeContainer.innerHTML = `<wired-progress value="50" style="--wired-progress-label-color:transparent;--wired-progress-label-background:transparent;"></wired-progress>`;
+    dialog.open = true;
 }
-start();
+window['runFromUrl'] = async function (url) {
+    const component = await fetch(url).then(res => res.arrayBuffer());
+    await onNewComponent(new Uint8Array(component));
+};
+window['runFromFile'] = async function (url) {
+    throw new Error('Not implemented');
+};
+window['closeDialog'] = function () {
+    iframeContainer.innerHTML = "";
+    dialog.open = false;
+};
+const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
