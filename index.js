@@ -83,7 +83,7 @@ function generateHTML(transpiled) {
                 <script type="importmap">
                     {
                         "imports": {
-                            "gfx.js": "/gfx.js",
+                            "gfx.js": "/playground/gfx.js",
                             "./mendy.core.wasm": "${urls.get('mendy.core.wasm')}",
                             ${Array.from(urls.entries()).map(([key, value]) => {
         return `"${key}": "${value}"`;
