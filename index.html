@@ -1,1 +1,33 @@
-<h1>wasi-gfx playground</h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        dialog {
+            padding: 24px;
+            border: none;
+            border-radius: 12px;
+            box-shadow: 2px 8px 16px 2px 8px 16px #00000040;;
+            display: grid;
+            justify-items: stretch;
+            align-items: stretch;
+        }
+        ::backdrop {
+            background-color: #8000971f;
+        }
+        dialog iframe {
+            border: none;
+            width: 90svw;
+            height: 90svh;
+        }
+    </style>
+</head>
+<body>
+    <h1>wasi-gfx playground</h1>
+    <dialog id="dialog"></dialog>
+    <script> document.getElementById('dialog').close(); </script>
+    <script type="module" src="index.js"></script>
+</body>
+</html>
