@@ -134,6 +134,6 @@ document.addEventListener('drop', async function (e) {
     }
     const file = files[0];
     const arrayBuffer = await file.arrayBuffer();
-    console.log(arrayBuffer);
+    await onNewComponent(new Uint8Array(arrayBuffer));
 });
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
