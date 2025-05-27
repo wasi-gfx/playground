@@ -117,11 +117,23 @@ window['runFromUrl'] = async function (url) {
     const component = await fetch(url).then(res => res.arrayBuffer());
     await onNewComponent(new Uint8Array(component));
 };
-window['runFromFile'] = async function (url) {
-    throw new Error('Not implemented');
-};
 window['closeDialog'] = function () {
     iframeContainer.innerHTML = "";
     dialog.open = false;
 };
+document.addEventListener('dragover', function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+});
+document.addEventListener('drop', async function (e) {
+    e.stopPropagation();
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length !== 1) {
+        throw new Error('Expected exactly 1 file');
+    }
+    const file = files[0];
+    const arrayBuffer = await file.arrayBuffer();
+    console.log(arrayBuffer);
+});
 const wait = (ms) => new Promise(resolve => setTimeout(resolve, ms));
