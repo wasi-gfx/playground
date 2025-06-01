@@ -17,6 +17,9 @@
         :root {
             font-family: 'Gloria Hallelujah', sans-serif;
         }
+        wired-fab {
+            transform: rotateZ(77deg);
+        }
         #errors {
             display: grid;
             gap: 12px;
@@ -32,6 +35,13 @@
             justify-content: center;
             justify-items: center;
             gap: 30px;
+        }
+        main wired-card {
+            color: white;
+            cursor: pointer;
+        }
+        main #file-input {
+            display: none;
         }
         wired-dialog {
             display: grid;
@@ -57,6 +67,12 @@
         <h1>wasi-gfx playground</h1>
         <wired-button elevation="5" onclick="runFromUrl('./triangle.wasm')">Triangle</wired-button>
         <wired-button elevation="5" onclick="runFromUrl('./breakout.wasm')">Breakout</wired-button>
+        <label>
+            <wired-card elevation="0" fill="black">
+                Select a .wasm file
+                <input type="file" accept=".wasm" id="file-input">
+            </wired-card>
+        </label>
     </main>
 
     <wired-dialog id="dialog" elevation="8">

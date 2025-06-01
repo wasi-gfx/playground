@@ -18,6 +18,7 @@ const ASYNC_WASI_EXPORTS = [
 
 const iframeContainer = document.getElementById('iframe-container') as HTMLElement;
 const dialog = document.getElementById('dialog') as any;
+const fileInput = document.getElementById('file-input') as HTMLInputElement;
 const errorContainer = document.getElementById('errors') as HTMLDivElement;
 
 if (!("gpu" in navigator)) {
@@ -180,6 +181,18 @@ document.addEventListener('drop', async function(e) {
     } catch (e) {
         error(e.message);
     }
+});
+
+fileInput.addEventListener('change', async () => {
+    const files = fileInput.files!;
+    if (files.length !== 1) {
+        error("Expected exactly 1 file");
+        throw new Error('Expected exactly 1 file');
+    }
+
+    const file = files[0];
+    const arrayBuffer = await file.arrayBuffer();
+    await onNewComponent(new Uint8Array(arrayBuffer));
 });
 
 function error(message: string) {
