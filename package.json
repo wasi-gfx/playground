@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "build": "tsc index.ts --target esnext"
+    "build": "tsc index.ts worker.ts --target esnext"
   }
 }

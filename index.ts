@@ -1,4 +1,4 @@
-import { generate, GenerateOptions, Transpiled } from './static/component.js';
+import { GenerateOptions, Transpiled } from './static/component.js';
 
 const ASYNC_WASI_IMPORTS = [
     'wasi:io/poll#poll',
@@ -15,6 +15,22 @@ const ASYNC_WASI_EXPORTS = [
     'wasi:cli/run#run',
     'wasi:http/incoming-handler#handle',
 ];
+
+const worker = new Worker('worker.js', {
+    type: 'module'
+});
+function generate(component: Uint8Array, options: GenerateOptions): Promise<Transpiled> {
+    return new Promise(res => {
+        worker.addEventListener('message', e => {
+            res(e.data.transpiled);
+        });
+        worker.postMessage({
+            type: "generate",
+            component,
+            options,
+        });
+    });
+}
 
 export async function onNewComponent(component: Uint8Array) {
     createLoader();
@@ -51,9 +67,7 @@ export async function onNewComponent(component: Uint8Array) {
             ['wasi:frame-buffer/frame-buffer', 'gfx.js'],
         ],
     }
-    await wait();
-    let transpiled = generate(component, options);
-    await wait();
+    let transpiled = await generate(component, options);
     createIFrame(transpiled);
 }
 
@@ -120,7 +134,7 @@ function createIFrame(transpiled: Transpiled) {
 }
 
 function createLoader() {
-    iframeContainer.innerHTML = `<wired-progress value="50" style="--wired-progress-label-color:transparent;--wired-progress-label-background:transparent;"></wired-progress>`;
+    iframeContainer.innerHTML = `<wired-spinner spinning></wired-spinner>`;
     dialog.open = true;
 }
 
@@ -151,5 +165,3 @@ document.addEventListener('drop', async function(e) {
     const arrayBuffer = await file.arrayBuffer();
     await onNewComponent(new Uint8Array(arrayBuffer));
 });
-
-const wait = (ms?: number) => new Promise(resolve => setTimeout(resolve, ms));
