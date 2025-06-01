@@ -11,10 +11,21 @@
         import 'https://unpkg.com/wired-icon-button@^2.1.0?module';
         import 'https://unpkg.com/wired-button@^2.1.0?module';
         import 'https://unpkg.com/wired-spinner@^2.1.0?module';
+        import 'https://unpkg.com/wired-fab@^2.1.0?module';
     </script>
     <style>
         :root {
             font-family: 'Gloria Hallelujah', sans-serif;
+        }
+        #errors {
+            display: grid;
+            gap: 12px;
+        }
+        #errors wired-card {
+            color: white;
+            font-weight: 900;
+            font-size: 28px;
+            text-align: center;
         }
         main {
             display: grid;
@@ -40,6 +51,8 @@
     </style>
 </head>
 <body>
+    <div id="errors"></div>
+
     <main>
         <h1>wasi-gfx playground</h1>
         <wired-button elevation="5" onclick="runFromUrl('./triangle.wasm')">Triangle</wired-button>

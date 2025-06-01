@@ -16,6 +16,17 @@ const ASYNC_WASI_EXPORTS = [
     'wasi:http/incoming-handler#handle',
 ];
 
+const iframeContainer = document.getElementById('iframe-container') as HTMLElement;
+const dialog = document.getElementById('dialog') as any;
+const errorContainer = document.getElementById('errors') as HTMLDivElement;
+
+if (!("gpu" in navigator)) {
+    error("WebGPU is not supported in this browser");
+}
+if (!("Suspending" in WebAssembly)) {
+    error("JSPI (JavaScript Promise Integration) is not supported in this browser");
+}
+
 const worker = new Worker('worker.js', {
     type: 'module'
 });
@@ -123,9 +134,6 @@ function generateHTML(transpiled: Transpiled) {
     `;
 }
 
-const iframeContainer = document.getElementById('iframe-container') as HTMLElement;
-const dialog = document.getElementById('dialog') as any;
-
 function createIFrame(transpiled: Transpiled) {
     const iframe = document.createElement('iframe') as HTMLIFrameElement;
     iframe.srcdoc = generateHTML(transpiled);
@@ -139,8 +147,12 @@ function createLoader() {
 }
 
 window['runFromUrl'] = async function(url: string) {
-    const component = await fetch(url).then(res => res.arrayBuffer());
-    await onNewComponent(new Uint8Array(component));
+    try {
+        const component = await fetch(url).then(res => res.arrayBuffer());
+        await onNewComponent(new Uint8Array(component));
+    } catch (e) {
+        error(e.message);
+    }
 }
 
 window['closeDialog'] = function() {
@@ -156,12 +168,28 @@ document.addEventListener('dragover', function(e) {
 document.addEventListener('drop', async function(e) {
     e.stopPropagation();
     e.preventDefault();
-    const files = e.dataTransfer!.files;
-    if (files.length !== 1) {
-        throw new Error('Expected exactly 1 file');
-    }
+    try {
+        const files = e.dataTransfer!.files;
+        if (files.length !== 1) {
+            throw new Error('Expected exactly 1 file');
+        }
 
-    const file = files[0];
-    const arrayBuffer = await file.arrayBuffer();
-    await onNewComponent(new Uint8Array(arrayBuffer));
+        const file = files[0];
+        const arrayBuffer = await file.arrayBuffer();
+        await onNewComponent(new Uint8Array(arrayBuffer));
+    } catch (e) {
+        error(e.message);
+    }
 });
+
+function error(message: string) {
+    const id = "x" + Math.random().toString().replace('.', '');
+    errorContainer.insertAdjacentHTML('beforeend', `
+        <wired-card fill="darkred" id="${id}">
+            ${message}
+            <wired-fab onclick="document.querySelector('#errors #${id}').remove()">
+                <span class="material-symbols-rounded">close</span>
+            </wired-fab>
+        </wired-card>
+    `);
+}
