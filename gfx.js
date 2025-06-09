@@ -586,11 +586,10 @@ class Context {
     }
 }
 
-// todo: catch errors correctly
 function convertFeatureNameWasiToWeb(name) {
     if (name === "texture-compression-bc-sliced3d")
         return "texture-compression-bc-sliced-3d";
-    if (name === "texture-compression-astc-sliced3d" || name === "float32-blendable")
+    if (name === "texture-compression-astc-sliced3d")
         throw new Todo;
     return name;
 }
@@ -726,6 +725,17 @@ function convertVertexFormatWasiToWeb(name) {
             return name;
     }
 }
+function convertTextureDimensionWebToWasi(name) {
+    name = name.toLowerCase();
+    switch (name) {
+        case "1d":
+            return "d1";
+        case "2d":
+            return "d2";
+        case "3d":
+            return "d3";
+    }
+}
 function convertTextureDimensionWasiToWeb(name) {
     switch (name) {
         case "d1":
@@ -765,44 +775,37 @@ function numberToBigInt(number) {
     return BigInt(number);
 }
 const inner = Symbol("inner");
-const key = Symbol("key");
-function privateConstructorCalled(k) {
-    if (k !== key)
-        throw new TypeError("Illegal constructor.");
-}
 class Gpu {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     async requestAdapter(options) {
         const adapter = await this[inner].requestAdapter(options);
         if (adapter)
-            return new GpuAdapter(key, adapter);
+            return new GpuAdapter(adapter);
         return undefined;
     }
     getPreferredCanvasFormat() {
         return convertTextureFormatWebToWasi(navigator.gpu.getPreferredCanvasFormat());
     }
     wgslLanguageFeatures() {
-        throw new Todo;
+        return new WgslLanguageFeatures(this[inner].wgslLanguageFeatures);
     }
 }
 class GpuAdapter {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     features() {
-        return new GpuSupportedFeatures(key, this[inner].features);
+        return new GpuSupportedFeatures(this[inner].features);
     }
     limits() {
-        return new GpuSupportedLimits(key, this[inner].limits);
+        return new GpuSupportedLimits(this[inner].limits);
     }
     info() {
-        return new GpuAdapterInfo(key, this[inner].info);
+        return new GpuAdapterInfo(this[inner].info);
     }
     isFallbackAdapter() {
         throw new Todo;
@@ -818,14 +821,13 @@ class GpuAdapter {
             requiredFeatures,
             requiredLimits: undefined, // TODO:
         });
-        return new GpuDevice(key, device);
+        return new GpuDevice(device);
     }
 }
 class GpuDevice {
     [inner];
     #context;
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     displayApiReady(displayApi) {
@@ -841,22 +843,22 @@ class GpuDevice {
         return new AbstractBuffer(this.#context.getCurrentTexture());
     }
     features() {
-        return new GpuSupportedFeatures(key, this[inner].features);
+        return new GpuSupportedFeatures(this[inner].features);
     }
     limits() {
-        return new GpuSupportedLimits(key, this[inner].limits);
+        return new GpuSupportedLimits(this[inner].limits);
     }
     adapterInfo() {
-        return new GpuAdapterInfo(key, this[inner].adapterInfo);
+        return new GpuAdapterInfo(this[inner].adapterInfo);
     }
     queue() {
-        return new GpuQueue(key, this[inner].queue);
+        return new GpuQueue(this[inner].queue);
     }
     destroy() {
-        throw new Todo;
+        return this[inner].destroy();
     }
     createBuffer(descriptor) {
-        return new GpuBuffer(key, this[inner].createBuffer({
+        return new GpuBuffer(this[inner].createBuffer({
             ...descriptor,
             size: bigIntToNumber(descriptor.size),
         }));
@@ -873,7 +875,7 @@ class GpuDevice {
         if (descriptor.viewFormats) {
             viewFormats = descriptor.viewFormats.map(convertTextureFormatWasiToWeb);
         }
-        return new GpuTexture(key, this[inner].createTexture({
+        return new GpuTexture(this[inner].createTexture({
             ...descriptor,
             dimension,
             format: convertTextureFormatWasiToWeb(descriptor.format),
@@ -881,10 +883,10 @@ class GpuDevice {
         }));
     }
     createSampler(descriptor) {
-        return new GpuSampler(key, this[inner].createSampler(descriptor));
+        return new GpuSampler(this[inner].createSampler(descriptor));
     }
     createBindGroupLayout(descriptor) {
-        return new GpuBindGroupLayout(key, this[inner].createBindGroupLayout({
+        return new GpuBindGroupLayout(this[inner].createBindGroupLayout({
             ...descriptor,
             entries: descriptor.entries.map(entry => {
                 let buffer;
@@ -938,7 +940,7 @@ class GpuDevice {
         }));
     }
     createPipelineLayout(descriptor) {
-        return new GpuPipelineLayout(key, this[inner].createPipelineLayout({
+        return new GpuPipelineLayout(this[inner].createPipelineLayout({
             ...descriptor,
             bindGroupLayouts: descriptor.bindGroupLayouts.map(bindGroupLayout => {
                 if (bindGroupLayout)
@@ -948,7 +950,7 @@ class GpuDevice {
         }));
     }
     createBindGroup(descriptor) {
-        return new GpuBindGroup(key, this[inner].createBindGroup({
+        return new GpuBindGroup(this[inner].createBindGroup({
             ...descriptor,
             layout: descriptor.layout[inner],
             entries: descriptor.entries.map(entry => {
@@ -1000,13 +1002,21 @@ class GpuDevice {
                 };
             });
         }
-        return new GpuShaderModule(key, this[inner].createShaderModule({
+        return new GpuShaderModule(this[inner].createShaderModule({
             ...descriptor,
             compilationHints,
         }));
     }
     createComputePipeline(descriptor) {
-        throw new Todo;
+        return new GpuComputePipeline(this[inner].createComputePipeline({
+            ...descriptor,
+            compute: {
+                ...descriptor.compute,
+                module: descriptor.compute.module[inner],
+                constants: undefined, // TODO:
+            },
+            layout: convertGpuLayoutWasiToWeb(descriptor.layout),
+        }));
     }
     createRenderPipeline(descriptor) {
         let buffers = undefined;
@@ -1062,7 +1072,7 @@ class GpuDevice {
                 }),
             };
         }
-        return new GpuRenderPipeline(key, this[inner].createRenderPipeline({
+        return new GpuRenderPipeline(this[inner].createRenderPipeline({
             ...descriptor,
             vertex,
             depthStencil,
@@ -1077,24 +1087,38 @@ class GpuDevice {
         throw new Todo;
     }
     createCommandEncoder(descriptor) {
-        return new GpuCommandEncoder(key, this[inner].createCommandEncoder({
+        return new GpuCommandEncoder(this[inner].createCommandEncoder({
             ...descriptor,
         }));
     }
     createRenderBundleEncoder(descriptor) {
-        throw new Todo;
+        return new GpuRenderBundleEncoder(this[inner].createRenderBundleEncoder({
+            colorFormats: descriptor.colorFormats.map(colorFormat => {
+                let colorFormatWeb;
+                if (colorFormat)
+                    colorFormatWeb = convertTextureFormatWasiToWeb(colorFormat);
+                return colorFormatWeb;
+            }),
+        }));
     }
     createQuerySet(descriptor) {
-        throw new Todo;
+        return new GpuQuerySet(this[inner].createQuerySet({
+            ...descriptor,
+        }));
     }
     lost() {
         throw new Todo;
     }
     pushErrorScope(filter) {
-        throw new Todo;
+        return this[inner].pushErrorScope(filter);
     }
-    popErrorScope() {
-        throw new Todo;
+    async popErrorScope() {
+        let output;
+        let error = await this[inner].popErrorScope();
+        if (error) {
+            output = new GpuError(error);
+        }
+        return output;
     }
     onuncapturederrorSubscribe() {
         throw new Todo;
@@ -1105,21 +1129,20 @@ class GpuDevice {
 }
 class GpuAdapterInfo {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     vendor() {
-        throw new Todo;
+        return this[inner].vendor;
     }
     architecture() {
-        throw new Todo;
+        return this[inner].architecture;
     }
     device() {
-        throw new Todo;
+        return this[inner].device;
     }
     description() {
-        throw new Todo;
+        return this[inner].description;
     }
     subgroupMinSize() {
         throw new Todo;
@@ -1130,23 +1153,20 @@ class GpuAdapterInfo {
 }
 class GpuBindGroup {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
 }
 class GpuBindGroupLayout {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
 }
 class GpuBuffer {
     [inner];
     #mappedRange;
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     size() {
@@ -1158,8 +1178,8 @@ class GpuBuffer {
     mapState() {
         return this[inner].mapState;
     }
-    mapAsync(mode, offset, size) {
-        throw new Todo;
+    async mapAsync(mode, offset, size) {
+        return await this[inner].mapAsync(mode);
     }
     getMappedRangeGetWithCopy(offset, size) {
         // TODO: letting getMappedRange be called multiple times until we figure out how to avoid the with-copy behavior
@@ -1181,7 +1201,7 @@ class GpuBuffer {
         this[inner].unmap();
     }
     destroy() {
-        throw new Todo;
+        return this[inner].destroy();
     }
     getMappedRangeSetWithCopy(data, offset, size) {
         // TODO: letting getMappedRange be called multiple times until we figure out how to avoid the with-copy behavior
@@ -1201,34 +1221,34 @@ class GpuBuffer {
 }
 class GpuBufferUsage {
     static mapRead() {
-        throw new Todo;
+        return 0x0001;
     }
     static mapWrite() {
-        throw new Todo;
+        return 0x0002;
     }
     static copySrc() {
-        throw new Todo;
+        return 0x0004;
     }
     static copyDst() {
-        throw new Todo;
+        return 0x0008;
     }
     static index() {
-        throw new Todo;
+        return 0x0010;
     }
     static vertex() {
-        throw new Todo;
+        return 0x0020;
     }
     static uniform() {
-        throw new Todo;
+        return 0x0040;
     }
     static storage() {
-        throw new Todo;
+        return 0x0080;
     }
     static indirect() {
-        throw new Todo;
+        return 0x0100;
     }
     static queryResolve() {
-        throw new Todo;
+        return 0x0200;
     }
 }
 class GpuCanvasContext {
@@ -1247,32 +1267,30 @@ class GpuCanvasContext {
 }
 class GpuColorWrite {
     static red() {
-        throw new Todo;
+        return 0x1;
     }
     static green() {
-        throw new Todo;
+        return 0x2;
     }
     static blue() {
-        throw new Todo;
+        return 0x4;
     }
     static alpha() {
-        throw new Todo;
+        return 0x8;
     }
     static all() {
-        throw new Todo;
+        return 0xF;
     }
 }
 class GpuCommandBuffer {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
 }
 class GpuCommandEncoder {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     beginRenderPass(descriptor) {
@@ -1313,7 +1331,7 @@ class GpuCommandEncoder {
         if (descriptor?.maxDrawCount) {
             maxDrawCount = bigIntToNumber(descriptor.maxDrawCount);
         }
-        return new GpuRenderPassEncoder(key, this[inner].beginRenderPass({
+        return new GpuRenderPassEncoder(this[inner].beginRenderPass({
             ...descriptor,
             colorAttachments,
             depthStencilAttachment,
@@ -1323,39 +1341,85 @@ class GpuCommandEncoder {
         }));
     }
     beginComputePass(descriptor) {
-        throw new Todo;
+        let descriptorWeb;
+        if (descriptor) {
+            let timestampWrites;
+            if (descriptor.timestampWrites) {
+                timestampWrites = {
+                    ...descriptor.timestampWrites,
+                    querySet: descriptor.timestampWrites.querySet[inner],
+                };
+            }
+            descriptorWeb = {
+                ...descriptor,
+                timestampWrites,
+            };
+        }
+        return new GpuComputePassEncoder(this[inner].beginComputePass(descriptorWeb));
     }
     copyBufferToBuffer(source, sourceOffset, destination, destinationOffset, size) {
-        throw new Todo;
+        this[inner].copyBufferToBuffer(source[inner], bigIntToNumber(sourceOffset), destination[inner], bigIntToNumber(destinationOffset), bigIntToNumber(size));
     }
     copyBufferToTexture(source, destination, copySize) {
-        throw new Todo;
+        let sourceOffset;
+        if (source.offset)
+            sourceOffset = bigIntToNumber(source.offset);
+        this[inner].copyBufferToTexture({
+            ...source,
+            buffer: source.buffer[inner],
+            offset: sourceOffset
+        }, {
+            ...destination,
+            texture: destination.texture[inner],
+        }, copySize);
     }
     copyTextureToBuffer(source, destination, copySize) {
-        throw new Todo;
+        let destinationOffset;
+        if (destination.offset)
+            destinationOffset = bigIntToNumber(destination.offset);
+        this[inner].copyTextureToBuffer({
+            ...source,
+            texture: source.texture[inner],
+        }, {
+            ...destination,
+            buffer: destination.buffer[inner],
+            offset: destinationOffset
+        }, copySize);
     }
     copyTextureToTexture(source, destination, copySize) {
-        throw new Todo;
+        this[inner].copyTextureToTexture({
+            ...source,
+            texture: source.texture[inner],
+        }, {
+            ...destination,
+            texture: destination.texture[inner],
+        }, copySize);
     }
     clearBuffer(buffer, offset, size) {
-        throw new Todo;
+        let offsetNumber;
+        if (offset)
+            offsetNumber = bigIntToNumber(offset);
+        let sizeNumber;
+        if (size)
+            sizeNumber = bigIntToNumber(size);
+        this[inner].clearBuffer(buffer[inner], offsetNumber, sizeNumber);
     }
     resolveQuerySet(querySet, firstQuery, queryCount, destination, destinationOffset) {
-        throw new Todo;
+        return this[inner].resolveQuerySet(querySet[inner], firstQuery, queryCount, destination[inner], bigIntToNumber(destinationOffset));
     }
     finish(descriptor) {
-        return new GpuCommandBuffer(key, this[inner].finish({
+        return new GpuCommandBuffer(this[inner].finish({
             ...descriptor
         }));
     }
     pushDebugGroup(groupLabel) {
-        throw new Todo;
+        return this[inner].pushDebugGroup(groupLabel);
     }
     popDebugGroup() {
-        throw new Todo;
+        return this[inner].popDebugGroup();
     }
     insertDebugMarker(markerLabel) {
-        throw new Todo;
+        return this[inner].insertDebugMarker(markerLabel);
     }
     label() {
         return this[inner].label;
@@ -1365,104 +1429,128 @@ class GpuCommandEncoder {
     }
 }
 class GpuCompilationInfo {
-    messages() { throw new Todo; }
+    [inner];
+    constructor(i) {
+        this[inner] = i;
+    }
+    messages() {
+        return this[inner].messages.map(message => new GpuCompilationMessage(message));
+    }
 }
 class GpuCompilationMessage {
+    [inner];
+    constructor(i) {
+        this[inner] = i;
+    }
     message() {
-        throw new Todo;
+        return this[inner].message;
     }
     type() {
-        throw new Todo;
+        return this[inner].type;
     }
     lineNum() {
-        throw new Todo;
+        return numberToBigInt(this[inner].lineNum);
     }
     linePos() {
-        throw new Todo;
+        return numberToBigInt(this[inner].linePos);
     }
     offset() {
-        throw new Todo;
+        return numberToBigInt(this[inner].offset);
     }
     length() {
-        throw new Todo;
+        return numberToBigInt(this[inner].length);
     }
 }
 class GpuComputePassEncoder {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     setPipeline(pipeline) {
-        throw new Todo;
+        return this[inner].setPipeline(pipeline[inner]);
     }
     dispatchWorkgroups(workgroupCountX, workgroupCountY, workgroupCountZ) {
-        throw new Todo;
+        return this[inner].dispatchWorkgroups(workgroupCountX, workgroupCountY, workgroupCountZ);
     }
     dispatchWorkgroupsIndirect(indirectBuffer, indirectOffset) {
-        throw new Todo;
+        return this[inner].dispatchWorkgroupsIndirect(indirectBuffer[inner], bigIntToNumber(indirectOffset));
     }
     end() {
-        throw new Todo;
+        return this[inner].end();
     }
     pushDebugGroup(groupLabel) {
-        throw new Todo;
+        return this[inner].pushDebugGroup(groupLabel);
     }
     popDebugGroup() {
-        throw new Todo;
+        return this[inner].popDebugGroup();
     }
     insertDebugMarker(markerLabel) {
-        throw new Todo;
+        return this[inner].insertDebugMarker(markerLabel);
     }
     setBindGroup(index, bindGroup, dynamicOffsetsData, dynamicOffsetsDataStart, dynamicOffsetsDataLength) {
-        throw new Todo;
+        let bindGroupWeb;
+        if (bindGroup) {
+            bindGroupWeb = bindGroup[inner];
+        }
+        if (dynamicOffsetsData === undefined) {
+            return this[inner].setBindGroup(index, bindGroupWeb);
+        }
+        else {
+            let dynamicOffsetsDataStartNumber;
+            if (dynamicOffsetsDataStart) {
+                dynamicOffsetsDataStartNumber = bigIntToNumber(dynamicOffsetsDataStart);
+            }
+            else {
+                dynamicOffsetsDataStartNumber = 0;
+            }
+            if (dynamicOffsetsDataLength === undefined) {
+                dynamicOffsetsDataLength = dynamicOffsetsData.length - dynamicOffsetsDataStartNumber;
+            }
+            return this[inner].setBindGroup(index, bindGroupWeb, dynamicOffsetsData, dynamicOffsetsDataStartNumber, dynamicOffsetsDataLength);
+        }
     }
 }
 class GpuComputePipeline {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     getBindGroupLayout(index) {
-        throw new Todo;
+        return new GpuBindGroupLayout(this[inner].getBindGroupLayout(index));
     }
 }
 class GpuMapMode {
     static read() {
-        throw new Todo;
+        return 0x0001;
     }
     static write() {
-        throw new Todo;
+        return 0x0002;
     }
 }
 class GpuPipelineLayout {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
 }
 class GpuQuerySet {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     destroy() {
-        throw new Todo;
+        return this[inner].destroy();
     }
     type() {
-        throw new Todo;
+        return this[inner].type;
     }
     count() {
-        throw new Todo;
+        return this[inner].count;
     }
 }
 class GpuQueue {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     submit(commandBuffers) {
@@ -1498,100 +1586,26 @@ class GpuQueue {
 }
 class GpuRenderBundle {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
 }
 class GpuRenderBundleEncoder {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     finish(descriptor) {
-        throw new Todo;
+        return new GpuRenderBundle(this[inner].finish(descriptor));
     }
     pushDebugGroup(groupLabel) {
-        throw new Todo;
+        return this[inner].pushDebugGroup(groupLabel);
     }
     popDebugGroup() {
-        throw new Todo;
+        return this[inner].popDebugGroup();
     }
     insertDebugMarker(markerLabel) {
-        throw new Todo;
-    }
-    setBindGroup(index, bindGroup, dynamicOffsetsData, dynamicOffsetsDataStart, dynamicOffsetsDataLength) {
-        throw new Todo;
-    }
-    setPipeline(pipeline) {
-        throw new Todo;
-    }
-    setIndexBuffer(buffer, indexFormat, offset, size) {
-        let offsetNumber;
-        if (offset) {
-            offsetNumber = bigIntToNumber(offset);
-        }
-        let sizeNumber;
-        if (size) {
-            sizeNumber = bigIntToNumber(size);
-        }
-        return this[inner].setIndexBuffer(buffer[inner], indexFormat, offsetNumber, sizeNumber);
-    }
-    setVertexBuffer(slot, buffer, offset, size) {
-        throw new Todo;
-    }
-    draw(vertexCount, instanceCount, firstVertex, firstInstance) {
-        throw new Todo;
-    }
-    drawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance) {
-        throw new Todo;
-    }
-    drawIndirect(indirectBuffer, indirectOffset) {
-        throw new Todo;
-    }
-    drawIndexedIndirect(indirectBuffer, indirectOffset) {
-        throw new Todo;
-    }
-}
-class GpuRenderPassEncoder {
-    [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
-        this[inner] = i;
-    }
-    setViewport(x, y, width, height, minDepth, maxDepth) {
-        throw new Todo;
-    }
-    setScissorRect(x, y, width, height) {
-        throw new Todo;
-    }
-    setBlendConstant(color) {
-        throw new Todo;
-    }
-    setStencilReference(reference) {
-        throw new Todo;
-    }
-    beginOcclusionQuery(queryIndex) {
-        throw new Todo;
-    }
-    endOcclusionQuery() {
-        throw new Todo;
-    }
-    executeBundles(bundles) {
-        throw new Todo;
-    }
-    end() {
-        return this[inner].end();
-    }
-    pushDebugGroup(groupLabel) {
-        throw new Todo;
-    }
-    popDebugGroup() {
-        throw new Todo;
-    }
-    insertDebugMarker(markerLabel) {
-        throw new Todo;
+        return this[inner].insertDebugMarker(markerLabel);
     }
     setBindGroup(index, bindGroup, dynamicOffsetsData, dynamicOffsetsDataStart, dynamicOffsetsDataLength) {
         let bindGroupWeb;
@@ -1651,59 +1665,152 @@ class GpuRenderPassEncoder {
         return this[inner].drawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
     }
     drawIndirect(indirectBuffer, indirectOffset) {
-        throw new Todo;
+        return this[inner].drawIndirect(indirectBuffer[inner], bigIntToNumber(indirectOffset));
     }
     drawIndexedIndirect(indirectBuffer, indirectOffset) {
-        throw new Todo;
+        return this[inner].drawIndexedIndirect(indirectBuffer[inner], bigIntToNumber(indirectOffset));
+    }
+}
+class GpuRenderPassEncoder {
+    [inner];
+    constructor(i) {
+        this[inner] = i;
+    }
+    setViewport(x, y, width, height, minDepth, maxDepth) {
+        return this[inner].setViewport(x, y, width, height, minDepth, maxDepth);
+    }
+    setScissorRect(x, y, width, height) {
+        return this[inner].setScissorRect(x, y, width, height);
+    }
+    setBlendConstant(color) {
+        return this[inner].setBlendConstant(color);
+    }
+    setStencilReference(reference) {
+        return this[inner].setStencilReference(reference);
+    }
+    beginOcclusionQuery(queryIndex) {
+        return this[inner].beginOcclusionQuery(queryIndex);
+    }
+    endOcclusionQuery() {
+        return this[inner].endOcclusionQuery();
+    }
+    executeBundles(bundles) {
+        return this[inner].executeBundles(bundles.map(bundle => bundle[inner]));
+    }
+    end() {
+        return this[inner].end();
+    }
+    pushDebugGroup(groupLabel) {
+        return this[inner].pushDebugGroup(groupLabel);
+    }
+    popDebugGroup() {
+        return this[inner].popDebugGroup();
+    }
+    insertDebugMarker(markerLabel) {
+        return this[inner].insertDebugMarker(markerLabel);
+    }
+    setBindGroup(index, bindGroup, dynamicOffsetsData, dynamicOffsetsDataStart, dynamicOffsetsDataLength) {
+        let bindGroupWeb;
+        if (bindGroup) {
+            bindGroupWeb = bindGroup[inner];
+        }
+        if (dynamicOffsetsData === undefined) {
+            return this[inner].setBindGroup(index, bindGroupWeb);
+        }
+        else {
+            let dynamicOffsetsDataStartNumber;
+            if (dynamicOffsetsDataStart) {
+                dynamicOffsetsDataStartNumber = bigIntToNumber(dynamicOffsetsDataStart);
+            }
+            else {
+                dynamicOffsetsDataStartNumber = 0;
+            }
+            if (dynamicOffsetsDataLength === undefined) {
+                dynamicOffsetsDataLength = dynamicOffsetsData.length - dynamicOffsetsDataStartNumber;
+            }
+            return this[inner].setBindGroup(index, bindGroupWeb, dynamicOffsetsData, dynamicOffsetsDataStartNumber, dynamicOffsetsDataLength);
+        }
+    }
+    setPipeline(pipeline) {
+        return this[inner].setPipeline(pipeline[inner]);
+    }
+    setIndexBuffer(buffer, indexFormat, offset, size) {
+        let offsetNumber;
+        if (offset) {
+            offsetNumber = bigIntToNumber(offset);
+        }
+        let sizeNumber;
+        if (size) {
+            sizeNumber = bigIntToNumber(size);
+        }
+        return this[inner].setIndexBuffer(buffer[inner], indexFormat, offsetNumber, sizeNumber);
+    }
+    setVertexBuffer(slot, buffer, offset, size) {
+        let bufferWeb;
+        if (buffer) {
+            bufferWeb = buffer[inner];
+        }
+        let offsetNumber;
+        if (offset) {
+            offsetNumber = bigIntToNumber(offset);
+        }
+        let sizeNumber;
+        if (size) {
+            sizeNumber = bigIntToNumber(size);
+        }
+        return this[inner].setVertexBuffer(slot, bufferWeb, offsetNumber, sizeNumber);
+    }
+    draw(vertexCount, instanceCount, firstVertex, firstInstance) {
+        return this[inner].draw(vertexCount, instanceCount, firstVertex, firstInstance);
+    }
+    drawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance) {
+        return this[inner].drawIndexed(indexCount, instanceCount, firstIndex, baseVertex, firstInstance);
+    }
+    drawIndirect(indirectBuffer, indirectOffset) {
+        return this[inner].drawIndirect(indirectBuffer[inner], bigIntToNumber(indirectOffset));
+    }
+    drawIndexedIndirect(indirectBuffer, indirectOffset) {
+        return this[inner].drawIndexedIndirect(indirectBuffer[inner], bigIntToNumber(indirectOffset));
     }
 }
 class GpuRenderPipeline {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     getBindGroupLayout(index) {
-        throw new Todo;
+        return new GpuBindGroupLayout(this[inner].getBindGroupLayout(index));
     }
 }
 class GpuSampler {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
 }
 class GpuShaderModule {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
-    getCompilationInfo() {
-        throw new Todo;
+    async getCompilationInfo() {
+        return new GpuCompilationInfo(await this[inner].getCompilationInfo());
     }
 }
 class GpuShaderStage {
-    [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
-        this[inner] = i;
-    }
     static vertex() {
-        throw new Todo;
+        return 0x1;
     }
     static fragment() {
-        throw new Todo;
+        return 0x2;
     }
     static compute() {
-        throw new Todo;
+        return 0x4;
     }
 }
 class GpuSupportedFeatures {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     has(value) {
@@ -1712,8 +1819,7 @@ class GpuSupportedFeatures {
 }
 class GpuSupportedLimits {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     maxTextureDimension1D() {
@@ -1812,8 +1918,7 @@ class GpuSupportedLimits {
 }
 class GpuTexture {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
     createView(descriptor) {
@@ -1823,150 +1928,173 @@ class GpuTexture {
         let dimension;
         if (descriptor?.dimension)
             dimension = convertTextureViewDimensionWasiToWeb(descriptor.dimension);
-        return new GpuTextureView(key, this[inner].createView({
+        return new GpuTextureView(this[inner].createView({
             ...descriptor,
             dimension,
             format,
         }));
     }
     destroy() {
-        throw new Todo;
+        return this[inner].destroy();
     }
     width() {
-        throw new Todo;
+        return this[inner].width;
     }
     height() {
-        throw new Todo;
+        return this[inner].height;
     }
     depthOrArrayLayers() {
-        throw new Todo;
+        return this[inner].depthOrArrayLayers;
     }
     mipLevelCount() {
-        throw new Todo;
+        return this[inner].mipLevelCount;
     }
     sampleCount() {
-        throw new Todo;
+        return this[inner].sampleCount;
     }
     dimension() {
-        throw new Todo;
+        return convertTextureDimensionWebToWasi(this[inner].dimension);
     }
     format() {
-        throw new Todo;
+        return convertTextureFormatWebToWasi(this[inner].format);
     }
     usage() {
-        throw new Todo;
+        return this[inner].usage;
     }
     static fromGraphicsBuffer(buffer) {
-        return new GpuTexture(key, buffer.buffer);
+        return new GpuTexture(buffer.buffer);
     }
 }
 class GpuTextureUsage {
-    [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
-        this[inner] = i;
-    }
     static copySrc() {
-        throw new Todo;
+        return 0x01;
     }
     static copyDst() {
-        throw new Todo;
+        return 0x02;
     }
     static textureBinding() {
-        throw new Todo;
+        return 0x04;
     }
     static storageBinding() {
-        throw new Todo;
+        return 0x08;
     }
     static renderAttachment() {
-        throw new Todo;
+        return 0x10;
     }
 }
 class GpuTextureView {
     [inner];
-    constructor(k, i) {
-        privateConstructorCalled(k);
+    constructor(i) {
         this[inner] = i;
     }
 }
 class GpuUncapturedErrorEvent {
+    [inner];
+    constructor(i) {
+        this[inner] = i;
+    }
     error() {
-        throw new Todo;
+        return new GpuError(this[inner].error);
     }
 }
 class RecordGpuPipelineConstantValue {
     map = new Map();
     add(key, value) {
-        throw new Todo;
+        this.map.set(key, value);
     }
     get(key) {
-        throw new Todo;
+        return this.map.get(key);
     }
     has(key) {
-        throw new Todo;
+        return this.map.has(key);
     }
     remove(key) {
-        throw new Todo;
+        this.map.delete(key);
     }
     keys() {
-        throw new Todo;
+        return Array.from(this.map.keys());
     }
     values() {
-        throw new Todo;
+        return new Float64Array(this.map.values());
     }
     entries() {
-        throw new Todo;
+        return Array.from(this.map.entries());
     }
 }
 class RecordOptionGpuSize64 {
     map = new Map();
     add(key, value) {
-        throw new Todo;
+        this.map.set(key, value);
     }
     get(key) {
-        throw new Todo;
+        return this.map.get(key);
     }
     has(key) {
-        throw new Todo;
+        return this.map.has(key);
     }
     remove(key) {
-        throw new Todo;
+        this.map.delete(key);
     }
     keys() {
-        throw new Todo;
+        return Array.from(this.map.keys());
     }
     values() {
-        throw new Todo;
+        return Array.from(this.map.values());
     }
     entries() {
-        throw new Todo;
+        return Array.from(this.map.entries());
     }
 }
 class WgslLanguageFeatures {
+    [inner];
+    constructor(i) {
+        this[inner] = i;
+    }
     has(value) {
-        throw new Todo;
+        return this[inner].has(value);
     }
 }
 class GpuDeviceLostInfo {
-    constructor() { }
+    [inner];
+    constructor(i) {
+        this[inner] = i;
+    }
     reason() {
-        throw new Todo;
+        return this[inner].reason;
     }
     message() {
-        throw new Todo;
+        return this[inner].message;
     }
 }
 class GpuError {
-    constructor() { }
+    [inner];
+    constructor(i) {
+        this[inner] = i;
+    }
     message() {
-        throw new Todo;
+        return this[inner].message;
     }
     kind() {
-        throw new Todo;
+        if (this[inner] instanceof GPUValidationError) {
+            return {
+                tag: "validation-error",
+            };
+        }
+        if (this[inner] instanceof GPUOutOfMemoryError) {
+            return {
+                tag: "out-of-memory-error",
+            };
+        }
+        if (this[inner] instanceof GPUInternalError) {
+            return {
+                tag: "internal-error",
+            };
+        }
+        throw new Unreachable;
     }
 }
 function getGpu() {
-    return new Gpu(key, navigator.gpu);
+    return new Gpu(navigator.gpu);
 }
 
 class Buffer {
