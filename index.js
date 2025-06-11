@@ -41,7 +41,7 @@ export async function onNewComponent(component) {
     createLoader();
     const options = {
         name: "mendy",
-        noNodejsCompat: false,
+        noNodejsCompat: true,
         noTypescript: true,
         asyncMode: {
             tag: 'jspi',

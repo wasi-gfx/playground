@@ -48,7 +48,7 @@ export async function onNewComponent(component: Uint8Array) {
     createLoader();
     const options: GenerateOptions = {
         name: "mendy",
-        noNodejsCompat: false,
+        noNodejsCompat: true,
         noTypescript: true,
         asyncMode: {
             tag: 'jspi',
