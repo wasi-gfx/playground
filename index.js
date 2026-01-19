@@ -180,6 +180,8 @@ fileInput.addEventListener('change', async () => {
     const file = files[0];
     const arrayBuffer = await file.arrayBuffer();
     await onNewComponent(new Uint8Array(arrayBuffer));
+    // clear file from input
+    fileInput.value = '';
 });
 function error(message) {
     const id = "x" + Math.random().toString().replace('.', '');
