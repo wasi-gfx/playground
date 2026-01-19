@@ -47,7 +47,7 @@ function generate(component: Uint8Array, options: GenerateOptions): Promise<Tran
 export async function onNewComponent(component: Uint8Array) {
     createLoader();
     const options: GenerateOptions = {
-        name: "mendy",
+        name: "output",
         noNodejsCompat: true,
         noTypescript: true,
         asyncMode: {
@@ -56,6 +56,11 @@ export async function onNewComponent(component: Uint8Array) {
                 imports: [
                     'wasi:webgpu/webgpu#[method]gpu.request-adapter',
                     'wasi:webgpu/webgpu#[method]gpu-adapter.request-device',
+                    'wasi:webgpu/webgpu#[method]gpu-device.create-compute-pipeline-async',
+                    'wasi:webgpu/webgpu#[method]gpu-device.create-render-pipeline-async',
+                    'wasi:webgpu/webgpu#[method]gpu-device.pop-error-scope',
+                    'wasi:webgpu/webgpu#[method]gpu-buffer.map-async',
+                    'wasi:webgpu/webgpu#[method]gpu-shader-module.get-compilation-info',
                     ...ASYNC_WASI_IMPORTS,
                 ],
                 exports: [
@@ -115,7 +120,7 @@ function generateHTML(transpiled: Transpiled) {
                     {
                         "imports": {
                             "gfx.js": "/playground/gfx.js",
-                            "./mendy.core.wasm": "${ urls.get('mendy.core.wasm') }",
+                            "./output.core.wasm": "${ urls.get('output.core.wasm') }",
                             ${
                                 Array.from(urls.entries()).map(([key, value]) => {
                                     return `"${key}": "${value}"`
@@ -125,8 +130,8 @@ function generateHTML(transpiled: Transpiled) {
                     }
                 </script>
                 <script type="module">
-                    import { "wasi:cli/run@0.2.0" as wasiCliRun } from 'mendy.js';
-                    wasiCliRun.run();
+                    import { run } from 'output.js';
+                    run.run();
                 </script>
             </head>
             <body>
